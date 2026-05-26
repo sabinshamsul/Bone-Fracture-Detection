@@ -3,7 +3,7 @@
 Automated bone fracture detection from X-ray images using deep learning and computer vision.
 
 ## Dataset
-[FracAtlas](https://figshare.com/articles/dataset/The_dataset/22363012) — 4,083 musculoskeletal 
+[FracAtlas](https://figshare.com/articles/dataset/The_dataset/22363012) - 4,083 musculoskeletal 
 X-ray images from 3 hospitals (CC-BY 4.0)
 
 ## Tech Stack
