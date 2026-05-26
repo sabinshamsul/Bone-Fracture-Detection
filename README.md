@@ -1,2 +1,14 @@
-# Bone-Fracture-Detection
-This project is about detecting bone fractures from X-ray images automatically from a labeled dataset of over 4000 images on body parts by using a Convolutional Neural Networks (CNN). It is part of a CV/NLP (Computer Vision &amp; Natural Language Processing) for a university assignment.
+# 🦴 Bone Fracture Detection
+
+Automated bone fracture detection from X-ray images using deep learning and computer vision.
+
+## Dataset
+[FracAtlas](https://figshare.com/articles/dataset/The_dataset/22363012) — 4,083 musculoskeletal 
+X-ray images from 3 hospitals (CC-BY 4.0)
+
+## Tech Stack
+- Python, TensorFlow/Keras
+- OpenCV (image preprocessing & Grad-CAM overlay)
+- EfficientNetB0 (Transfer Learning on ImageNet)
+- Grad-CAM (Model Interpretability)
+- HuggingFace Spaces (Deployment)
