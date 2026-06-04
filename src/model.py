@@ -39,7 +39,7 @@ def compile_and_train(model, base_model, X_train, y_train, X_val, y_val):
         classes=classess,
         y=y_train
     )
-    class_weight_dict = dict(zip(classes, weights))
+    class_weight_dict = dict(zip(classess, weights))
     print(f"Class weights: {class_weight_dict}")
     
     # Stage 1 - Train only the top layers
@@ -49,7 +49,7 @@ def compile_and_train(model, base_model, X_train, y_train, X_val, y_val):
 
     model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3)
-        loss="binary_crossentropy"
+        loss="binary_crossentropy",
         metrics=["accuracy", tf.keras.metrics.AUC(name="auc")]
     )
 
@@ -91,7 +91,7 @@ def compile_and_train(model, base_model, X_train, y_train, X_val, y_val):
     # Recompile with lower learning rate
     model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=1e-5)
-        loss="binary_crossentropy"
+        loss="binary_crossentropy",
         metrics=["accuracy", tf.keras.metrics.AUC(name="auc")]
     )
 
