@@ -130,15 +130,16 @@ def create_tf_dataset(data_dir, batch_size=32, img_size=(224, 224),
           f"Non-fractured: {len(sel_labels)-sum(sel_labels)}")
     
     def parse_image(path, label):
-        try:
-            img = tf.io.read_file(path)
-            img = tf.image.decode_jpeg(img, channels=3)
-            img = tf.image.resize(img, img_size)
-            img = tf.cast(img, tf.float32) / 255.0
-        except tf.errors.InvalidArgumentError:
-            # Return blank image if JPEG is corrupted
-            img = tf.zeros([img_size[0], img_size[1], 3], 
-                        dtype=tf.float32)
+        img = tf.io.read_file(path)
+        # decode_image handles corrupted files better than decode_jpeg
+        img = tf.image.decode_image(
+            img, 
+            channels=3, 
+            expand_animations=False
+        )
+        img = tf.image.resize(img, img_size)
+        img = tf.cast(img, tf.float32) / 255.0
+        img.set_shape([img_size[0], img_size[1], 3])
         return img, label
     
     dataset = tf.data.Dataset.from_tensor_slices((sel_paths, sel_labels))
