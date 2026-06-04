@@ -33,13 +33,13 @@ def build_model(input_shape=(224, 224, 3), num_classes=10):
 def compile_and_train(model, base_model, X_train, y_train, X_val, y_val):
 
     # Calculate class weights to handle class imbalance
-    classess = np.unique(y_train)
+    classes = np.unique(y_train)
     weights = compute_class_weight(
         class_weight="balanced",
-        classes=classess,
+        classes=classes,
         y=y_train
     )
-    class_weight_dict = dict(zip(classess, weights))
+    class_weight_dict = dict(zip(classes, weights))
     print(f"Class weights: {class_weight_dict}")
     
     # Stage 1 - Train only the top layers
@@ -48,7 +48,7 @@ def compile_and_train(model, base_model, X_train, y_train, X_val, y_val):
     print("=" * 50)
 
     model.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3)
+        optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3),
         loss="binary_crossentropy",
         metrics=["accuracy", tf.keras.metrics.AUC(name="auc")]
     )
@@ -90,7 +90,7 @@ def compile_and_train(model, base_model, X_train, y_train, X_val, y_val):
     
     # Recompile with lower learning rate
     model.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=1e-5)
+        optimizer=tf.keras.optimizers.Adam(learning_rate=1e-5),
         loss="binary_crossentropy",
         metrics=["accuracy", tf.keras.metrics.AUC(name="auc")]
     )
