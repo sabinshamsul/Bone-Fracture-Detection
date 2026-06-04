@@ -1,47 +1,39 @@
 import tensorflow as tf
 import numpy as np
-
+from sklearn.utils.class_weight import compute_class_weight
 from tensorflow.keras.applications import EfficientNetB0
 from tensorflow.keras.layers import GlobalAveragePooling2D, Dropout, Dense
-from tensorflow.keras.models import Model
-from sklearn.utils.class_weight import compute_class_weight
 
-def build_model(input_shape=(224, 224, 3), num_classes=10):
-    # Load the EfficientNetB0 pretrained on ImageNet
+def build_model(input_shape=(224, 224, 3)):
+    # Load EfficientNetB0 pretrained on ImageNet
     base_model = EfficientNetB0(
-        weights='imagenet', 
-        include_top=False, # Means removing the original 1000-class output layer
+        weights="imagenet",
+        include_top=False,
         input_shape=input_shape
-        )
-    
-    # Freeze the base model (So not touch pretrained weights yet)
+    )
+
+    # Freeze the base model
     base_model.trainable = False
-    
-    # Build custom top layers on top of EfficientNetB0
-    x = base_model.output # Get the output of the base model
-    x = GlobalAveragePooling2D()(x) # Summarise feature maps into a single vector
-    x = Dropout(0.2)(x) # Randomly switch 20% of the neurons to prevent overfitting
-    x = Dense(128, activation='relu')(x) # Add a fully connected layer with 128 neurons and ReLU activation
-    x = Dropout(0.2)(x) # Another dropout layer to further reduce overfitting
-    output = Dense(1, activation='sigmoid')(x) # Final output layer with sigmoid activation for binary classification
-    
-    # Combine base model and custom top into a new model
-    model = Model(inputs=base_model.input, outputs=output)
-    
+
+    # Use functional API with training=False
+    # This keeps BatchNorm in inference mode when base is frozen
+    inputs = tf.keras.Input(shape=input_shape)
+    x = base_model(inputs, training=False)
+    x = GlobalAveragePooling2D()(x)
+    x = Dropout(0.2)(x)
+    x = Dense(128, activation="relu")(x)
+    x = Dropout(0.2)(x)
+    output = Dense(1, activation="sigmoid")(x)
+
+    model = tf.keras.Model(inputs=inputs, outputs=output)
+
     return model, base_model
 
-# Data augmentation
 
-data_augmentation = tf.keras.Sequential([
-    tf.keras.layers.RandomFlip("horizontal"),
-    tf.keras.layers.RandomRotation(0.1),
-    tf.keras.layers.RandomZoom(0.1),
-])
-
-def compile_and_train(model, base_model, train_dataset, val_dataset, 
+def compile_and_train(model, base_model, train_dataset, val_dataset,
                       train_labels):
-    
-    # Calculate class weights
+
+    # Calculate class weights to handle imbalance
     classes = np.unique(train_labels)
     weights = compute_class_weight(
         class_weight="balanced",
@@ -51,7 +43,7 @@ def compile_and_train(model, base_model, train_dataset, val_dataset,
     class_weight_dict = dict(zip(classes.tolist(), weights.tolist()))
     print(f"Class weights: {class_weight_dict}")
 
-    # Stage 1 - Train top layers only
+    # Stage 1 — Train top layers only
     print("\n" + "=" * 50)
     print("STAGE 1: Training top layers only")
     print("=" * 50)
@@ -86,15 +78,24 @@ def compile_and_train(model, base_model, train_dataset, val_dataset,
         verbose=1
     )
 
-    # Stage 2 - Fine tune
+    # Stage 2 — Unfreeze and fine-tune
     print("\n" + "=" * 50)
     print("STAGE 2: Fine-tuning EfficientNet top layers")
     print("=" * 50)
 
+    # Unfreeze base model
     base_model.trainable = True
+
+    # Keep BatchNorm ALWAYS frozen — critical for EfficientNet
+    for layer in base_model.layers:
+        if isinstance(layer, tf.keras.layers.BatchNormalization):
+            layer.trainable = False
+
+    # Keep bottom layers frozen too
     for layer in base_model.layers[:-20]:
         layer.trainable = False
 
+    # Recompile with much smaller learning rate
     model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=1e-5),
         loss="binary_crossentropy",
