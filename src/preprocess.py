@@ -4,6 +4,8 @@ import os
 import pandas as pd
 import tensorflow as tf
 
+os.environ["OPENCV_LOG_LEVEL"] = "SILENT"
+
 from pathlib import Path
 
 def apply_clahe(image):
@@ -23,7 +25,7 @@ def apply_clahe(image):
 
 def load_image(image_path, target_size=(224, 224)):
     # Read the image
-    image = cv2.imread(image_path)
+    image = cv2.imread(str(image_path))
 
     # Check if the image was loaded successfully
     if image is None:
