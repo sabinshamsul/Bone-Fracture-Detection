@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import os
 import pandas as pd
+import tensorflow as tf
 
 from pathlib import Path
 
@@ -82,3 +83,66 @@ def load_dataset(data_dir):
     print(f"Fractured: {int(y.sum())} | Non-fractured: {int(len(y) - y.sum())}")
 
     return X, y
+
+def create_tf_dataset(data_dir, batch_size=32, img_size=(224, 224), 
+                      subset="training", seed=42):
+    data_dir = Path(data_dir)
+    csv_path = data_dir / "dataset.csv"
+    images_dir = data_dir / "images"
+    
+    df = pd.read_csv(csv_path)
+    
+    # Build full paths and labels
+    image_paths = []
+    labels = []
+    
+    for _, row in df.iterrows():
+        if row["fractured"] == 1:
+            img_path = str(images_dir / "Fractured" / row["image_id"])
+        else:
+            img_path = str(images_dir / "Non_fractured" / row["image_id"])
+        image_paths.append(img_path)
+        labels.append(int(row["fractured"]))
+    
+    # Split indices
+    total = len(image_paths)
+    indices = list(range(total))
+    
+    import random
+    random.seed(seed)
+    random.shuffle(indices)
+    
+    train_end = int(0.7 * total)
+    val_end = int(0.85 * total)
+    
+    if subset == "training":
+        selected = indices[:train_end]
+    elif subset == "validation":
+        selected = indices[train_end:val_end]
+    else:
+        selected = indices[val_end:]
+    
+    sel_paths = [image_paths[i] for i in selected]
+    sel_labels = [labels[i] for i in selected]
+    
+    print(f"{subset}: {len(sel_paths)} images | "
+          f"Fractured: {sum(sel_labels)} | "
+          f"Non-fractured: {len(sel_labels)-sum(sel_labels)}")
+    
+    def parse_image(path, label):
+        img = tf.io.read_file(path)
+        img = tf.image.decode_jpeg(img, channels=3)
+        img = tf.image.resize(img, img_size)
+        img = tf.cast(img, tf.float32) / 255.0
+        return img, label
+    
+    dataset = tf.data.Dataset.from_tensor_slices((sel_paths, sel_labels))
+    dataset = dataset.map(parse_image, 
+                         num_parallel_calls=tf.data.AUTOTUNE)
+    
+    if subset == "training":
+        dataset = dataset.shuffle(buffer_size=500, seed=seed)
+    
+    dataset = dataset.batch(batch_size).prefetch(tf.data.AUTOTUNE)
+    
+    return dataset, sel_labels

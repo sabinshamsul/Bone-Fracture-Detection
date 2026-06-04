@@ -38,21 +38,22 @@ data_augmentation = tf.keras.Sequential([
     tf.keras.layers.RandomZoom(0.1),
 ])
 
-def compile_and_train(model, base_model, X_train, y_train, X_val, y_val):
-
-    # Calculate class weights to handle class imbalance
-    classes = np.unique(y_train)
+def compile_and_train(model, base_model, train_dataset, val_dataset, 
+                      train_labels):
+    
+    # Calculate class weights
+    classes = np.unique(train_labels)
     weights = compute_class_weight(
         class_weight="balanced",
         classes=classes,
-        y=y_train
+        y=train_labels
     )
-    class_weight_dict = dict(zip(classes, weights))
+    class_weight_dict = dict(zip(classes.tolist(), weights.tolist()))
     print(f"Class weights: {class_weight_dict}")
-    
-    # Stage 1 - Train only the top layers
+
+    # Stage 1 - Train top layers only
     print("\n" + "=" * 50)
-    print("STAGE 1: Training the top layers only")
+    print("STAGE 1: Training top layers only")
     print("=" * 50)
 
     model.compile(
@@ -77,26 +78,23 @@ def compile_and_train(model, base_model, X_train, y_train, X_val, y_val):
     ]
 
     history1 = model.fit(
-        X_train, y_train,
-        validation_data=(X_val, y_val),
-        epochs=30,
-        batch_size=16,
+        train_dataset,
+        validation_data=val_dataset,
+        epochs=20,
         class_weight=class_weight_dict,
         callbacks=callbacks_stage1,
         verbose=1
     )
 
-    # Stage 2 - Unfreeze and fine tune
+    # Stage 2 - Fine tune
     print("\n" + "=" * 50)
-    print("STAGE 2: Fine-tuning top layers of EfficientNet")
+    print("STAGE 2: Fine-tuning EfficientNet top layers")
     print("=" * 50)
 
-    # Unfreeze the top 20 layers
     base_model.trainable = True
     for layer in base_model.layers[:-20]:
         layer.trainable = False
-    
-    # Recompile with lower learning rate
+
     model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=1e-5),
         loss="binary_crossentropy",
@@ -120,10 +118,9 @@ def compile_and_train(model, base_model, X_train, y_train, X_val, y_val):
     ]
 
     history2 = model.fit(
-        X_train, y_train,
-        validation_data=(X_val, y_val),
+        train_dataset,
+        validation_data=val_dataset,
         epochs=20,
-        batch_size=32,
         class_weight=class_weight_dict,
         callbacks=callbacks_stage2,
         verbose=1
