@@ -123,13 +123,16 @@ def create_tf_dataset(image_paths, labels, batch_size=32,
     def parse_image(path, label):
         img = tf.io.read_file(path)
         img = tf.image.decode_jpeg(
-            img, 
+            img,
             channels=3,
-            try_recover_truncated=True,  # handles non-standard JPEGs
-            acceptable_fraction=0.5      # accepts images even if 50% is missing
+            try_recover_truncated=True,
+            acceptable_fraction=0.5
         )
         img = tf.image.resize(img, img_size)
-        img = tf.cast(img, tf.float32) / 255.0
+        img = tf.cast(img, tf.float32)
+        # Apply EfficientNet preprocessing — scales to [-1, 1]
+        # This matches exactly how EfficientNetB0 was trained on ImageNet
+        img = tf.keras.applications.efficientnet.preprocess_input(img)
         img.set_shape([img_size[0], img_size[1], 3])
         return img, label
     
