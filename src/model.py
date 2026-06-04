@@ -30,6 +30,14 @@ def build_model(input_shape=(224, 224, 3), num_classes=10):
     
     return model, base_model
 
+# Data augmentation
+
+data_augmentation = tf.keras.Sequential([
+    tf.keras.layers.RandomFlip("horizontal"),
+    tf.keras.layers.RandomRotation(0.1),
+    tf.keras.layers.RandomZoom(0.1),
+])
+
 def compile_and_train(model, base_model, X_train, y_train, X_val, y_val):
 
     # Calculate class weights to handle class imbalance
@@ -71,8 +79,8 @@ def compile_and_train(model, base_model, X_train, y_train, X_val, y_val):
     history1 = model.fit(
         X_train, y_train,
         validation_data=(X_val, y_val),
-        epochs=20,
-        batch_size=32,
+        epochs=30,
+        batch_size=16,
         class_weight=class_weight_dict,
         callbacks=callbacks_stage1,
         verbose=1
@@ -117,7 +125,7 @@ def compile_and_train(model, base_model, X_train, y_train, X_val, y_val):
         epochs=20,
         batch_size=32,
         class_weight=class_weight_dict,
-        callbacks=callbacks_stage1,
+        callbacks=callbacks_stage2,
         verbose=1
     )
 
