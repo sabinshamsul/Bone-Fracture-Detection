@@ -84,71 +84,55 @@ def load_dataset(data_dir):
 
     return X, y
 
-def create_tf_dataset(data_dir, batch_size=32, img_size=(224, 224), 
-                      subset="training", seed=42):
+def get_valid_image_paths(data_dir):
+    """Pre-scan all images and return only valid ones."""
     data_dir = Path(data_dir)
     csv_path = data_dir / "dataset.csv"
     images_dir = data_dir / "images"
     
     df = pd.read_csv(csv_path)
     
-    # Build full paths and labels
-    image_paths = []
-    labels = []
+    valid_paths = []
+    valid_labels = []
+    skipped = 0
     
     for _, row in df.iterrows():
         if row["fractured"] == 1:
-            img_path = str(images_dir / "Fractured" / row["image_id"])
+            img_path = images_dir / "Fractured" / row["image_id"]
         else:
-            img_path = str(images_dir / "Non_fractured" / row["image_id"])
-        image_paths.append(img_path)
-        labels.append(int(row["fractured"]))
+            img_path = images_dir / "Non_fractured" / row["image_id"]
+        
+        # Try loading with OpenCV — skip if corrupted
+        img = cv2.imread(str(img_path))
+        if img is not None and img.size > 0:
+            valid_paths.append(str(img_path))
+            valid_labels.append(int(row["fractured"]))
+        else:
+            skipped += 1
     
-    # Split indices
-    total = len(image_paths)
-    indices = list(range(total))
-    
-    import random
-    random.seed(seed)
-    random.shuffle(indices)
-    
-    train_end = int(0.7 * total)
-    val_end = int(0.85 * total)
-    
-    if subset == "training":
-        selected = indices[:train_end]
-    elif subset == "validation":
-        selected = indices[train_end:val_end]
-    else:
-        selected = indices[val_end:]
-    
-    sel_paths = [image_paths[i] for i in selected]
-    sel_labels = [labels[i] for i in selected]
-    
-    print(f"{subset}: {len(sel_paths)} images | "
-          f"Fractured: {sum(sel_labels)} | "
-          f"Non-fractured: {len(sel_labels)-sum(sel_labels)}")
+    print(f"✅ Valid images: {len(valid_paths)}")
+    print(f"❌ Skipped corrupted: {skipped}")
+    return valid_paths, valid_labels
+
+def create_tf_dataset(image_paths, labels, batch_size=32, 
+                      img_size=(224, 224), shuffle=False, seed=42):
+    """Create a tf.data.Dataset from pre-validated image paths."""
     
     def parse_image(path, label):
         img = tf.io.read_file(path)
-        # decode_image handles corrupted files better than decode_jpeg
-        img = tf.image.decode_image(
-            img, 
-            channels=3, 
-            expand_animations=False
-        )
+        img = tf.image.decode_jpeg(img, channels=3)
         img = tf.image.resize(img, img_size)
         img = tf.cast(img, tf.float32) / 255.0
         img.set_shape([img_size[0], img_size[1], 3])
         return img, label
     
-    dataset = tf.data.Dataset.from_tensor_slices((sel_paths, sel_labels))
-    dataset = dataset.map(parse_image, 
-                         num_parallel_calls=tf.data.AUTOTUNE)
+    dataset = tf.data.Dataset.from_tensor_slices((image_paths, labels))
     
-    if subset == "training":
-        dataset = dataset.shuffle(buffer_size=500, seed=seed)
+    if shuffle:
+        dataset = dataset.shuffle(buffer_size=len(image_paths), seed=seed)
     
-    dataset = dataset.batch(batch_size).prefetch(tf.data.AUTOTUNE)
+    dataset = dataset.map(parse_image, num_parallel_calls=tf.data.AUTOTUNE)
+    dataset = dataset.batch(batch_size)
+    dataset = dataset.prefetch(tf.data.AUTOTUNE)
     
-    return dataset, sel_labels
+    return dataset
