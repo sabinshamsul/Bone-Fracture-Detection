@@ -72,7 +72,7 @@ axes[2].imshow(cv2.cvtColor(overlayed, cv2.COLOR_BGR2RGB))
 title_color = "green" if predicted_class == ground_truth else "red"
 axes[2].set_title(
     f"Predicted: {label} ({prediction:.2%})\n"
-    f"Actual: {ground_truth_label}  {correct}",
+    f"Actual: {ground_truth_label} {correct}",
     color=title_color
 ) 
 axes[2].axis("off")
